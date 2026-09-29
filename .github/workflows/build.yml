@@ -70,6 +70,8 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+
       - uses: actions/download-artifact@v4
         with:
           name: Jo-apk
@@ -92,9 +94,27 @@ jobs:
             adb shell am start -n com.teneeduu.jo/.MainActivity
             sleep 10
             adb exec-out screencap -p > screenshot.png
+            adb shell uiautomator dump /sdcard/ui.xml
+            adb shell cat /sdcard/ui.xml > ui.xml
+            sh scripts/tap-text.sh ui.xml "播放音乐"
+            sleep 5
+            adb shell dumpsys media_session > media_session.txt
+            adb shell cmd statusbar expand-notifications
+            sleep 3
+            adb exec-out screencap -p > screenshot-notification.png
+            adb shell cmd statusbar collapse
+            adb shell am force-stop com.teneeduu.jo
+            adb shell am start -n com.teneeduu.jo/.MainActivity --ez open_settings true
+            sleep 8
+            adb exec-out screencap -p > screenshot-settings.png
 
-      - name: Upload screenshot
+      - name: Show Jo's media session state
+        run: grep -A 15 "com.teneeduu.jo" media_session.txt | grep -E "package=|active=|state=" | head -8 || true
+
+      - name: Upload screenshots
         uses: actions/upload-artifact@v4
         with:
           name: Jo-screenshot
-          path: screenshot.png
+          path: |
+            screenshot*.png
+            media_session.txt

@@ -10,24 +10,18 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material3.Button
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.darkColorScheme
@@ -58,6 +52,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.teneeduu.jo.music.MusicViewModel
 import com.teneeduu.jo.update.UpdateState
 import com.teneeduu.jo.update.UpdateViewModel
 
@@ -69,10 +64,16 @@ private val Rainbow = listOf(
 )
 
 @Composable
-fun JoApp(updates: UpdateViewModel = viewModel()) {
-    val state by updates.state.collectAsStateWithLifecycle()
+fun JoApp(
+    openSettingsAtLaunch: Boolean = false,
+    updates: UpdateViewModel = viewModel(),
+    music: MusicViewModel = viewModel(),
+) {
+    val updateState by updates.state.collectAsStateWithLifecycle()
+    val nowPlaying by music.nowPlaying.collectAsStateWithLifecycle()
+    val tracks by music.tracks.collectAsStateWithLifecycle()
     val context = LocalContext.current
-    var showSettings by rememberSaveable { mutableStateOf(false) }
+    var showSettings by rememberSaveable { mutableStateOf(openSettingsAtLaunch) }
 
     LaunchedEffect(Unit) { updates.check(quiet = true) }
 
@@ -87,7 +88,7 @@ fun JoApp(updates: UpdateViewModel = viewModel()) {
             Greeting(Modifier.align(Alignment.Center))
 
             UpdateBanner(
-                state = state,
+                state = updateState,
                 onInstall = { updates.install(context) },
                 modifier = Modifier
                     .align(Alignment.TopCenter)
@@ -104,16 +105,51 @@ fun JoApp(updates: UpdateViewModel = viewModel()) {
             ) {
                 Icon(Icons.Filled.Settings, contentDescription = "设置", tint = Color.White)
             }
+
+            GlassPill(
+                onClick = music::toggle,
+                enabled = tracks.isNotEmpty(),
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .navigationBarsPadding()
+                    .padding(bottom = 40.dp),
+            ) {
+                Icon(
+                    if (nowPlaying.isPlaying) JoIcons.Waveform else JoIcons.MusicNote,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp),
+                )
+                Text(if (nowPlaying.isPlaying) "正在播放" else "播放音乐", fontSize = 15.sp)
+            }
         }
 
         if (showSettings) {
-            SettingsSheet(
-                state = state,
-                currentBuild = updates.currentBuild,
-                onCheck = { updates.check() },
-                onInstall = { updates.install(context) },
-                onDismiss = { showSettings = false },
-            )
+            SettingsSheet(music = music, updates = updates, onDismiss = { showSettings = false })
+        }
+    }
+}
+
+@Composable
+private fun GlassPill(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    content: @Composable () -> Unit,
+) {
+    Surface(
+        onClick = onClick,
+        enabled = enabled,
+        shape = CircleShape,
+        color = Color.White.copy(alpha = 0.18f),
+        contentColor = Color.White,
+        modifier = modifier,
+    ) {
+        Row(
+            Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            content()
         }
     }
 }
@@ -200,78 +236,7 @@ private fun UpdateBanner(state: UpdateState, onInstall: () -> Unit, modifier: Mo
         is UpdateState.NeedsInstallPermission -> "允许 Jo 安装应用后，点这里继续更新"
         else -> return
     }
-    Surface(
-        onClick = onInstall,
-        enabled = state !is UpdateState.Downloading,
-        shape = CircleShape,
-        color = Color.White.copy(alpha = 0.18f),
-        contentColor = Color.White,
-        modifier = modifier,
-    ) {
-        Text(text, Modifier.padding(horizontal = 18.dp, vertical = 10.dp), fontSize = 14.sp)
+    GlassPill(onClick = onInstall, enabled = state !is UpdateState.Downloading, modifier = modifier) {
+        Text(text, fontSize = 14.sp)
     }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun SettingsSheet(
-    state: UpdateState,
-    currentBuild: Int,
-    onCheck: () -> Unit,
-    onInstall: () -> Unit,
-    onDismiss: () -> Unit,
-) {
-    ModalBottomSheet(onDismissRequest = onDismiss) {
-        Column(
-            Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 24.dp)
-                .padding(bottom = 36.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
-        ) {
-            Text("关于 Jo", style = MaterialTheme.typography.titleMedium)
-
-            Row(Modifier.fillMaxWidth()) {
-                Text("当前版本")
-                Spacer(Modifier.weight(1f))
-                Text("build $currentBuild", color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-
-            statusText(state)?.let { status ->
-                Text(status, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
-            }
-
-            when (state) {
-                is UpdateState.Available ->
-                    Button(onClick = onInstall) { Text("下载并安装 build ${state.build}") }
-
-                is UpdateState.NeedsInstallPermission ->
-                    Button(onClick = onInstall) { Text("我已允许，继续更新") }
-
-                is UpdateState.Downloading ->
-                    LinearProgressIndicator(progress = { state.progress }, modifier = Modifier.fillMaxWidth())
-
-                else ->
-                    OutlinedButton(onClick = onCheck, enabled = state !is UpdateState.Checking) {
-                        Text(if (state is UpdateState.Checking) "正在检查…" else "检查更新")
-                    }
-            }
-
-            Text(
-                "有新版本时 Jo 会自己从 GitHub 下载，下载完系统弹出安装确认，点「安装」即可，数据会保留。" +
-                    "第一次更新时需要允许 Jo「安装未知应用」。",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-    }
-}
-
-private fun statusText(state: UpdateState): String? = when (state) {
-    is UpdateState.UpToDate -> "已经是最新版本"
-    is UpdateState.Available -> "有新版本：build ${state.build}"
-    is UpdateState.Downloading -> "正在下载 ${(state.progress * 100).toInt()}%"
-    is UpdateState.NeedsInstallPermission -> "请在刚打开的设置页里允许 Jo 安装应用，然后回来继续"
-    is UpdateState.Failed -> "检查失败：${state.message}"
-    else -> null
 }
