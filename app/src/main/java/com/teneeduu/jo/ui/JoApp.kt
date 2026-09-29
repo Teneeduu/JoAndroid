@@ -41,8 +41,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.LinearGradientShader
+import androidx.compose.ui.graphics.Shader
+import androidx.compose.ui.graphics.ShaderBrush
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.graphicsLayer
@@ -161,12 +165,7 @@ private fun Greeting(modifier: Modifier) {
             scaleY = scale
         },
         style = TextStyle(
-            brush = Brush.linearGradient(
-                colors = Rainbow,
-                start = Offset(shift * 900f, 0f),
-                end = Offset(shift * 900f + 900f, 300f),
-                tileMode = TileMode.Mirror,
-            ),
+            brush = flowingRainbow(shift),
             fontSize = 64.sp,
             lineHeight = 70.sp,
             fontWeight = FontWeight.Black,
@@ -174,6 +173,23 @@ private fun Greeting(modifier: Modifier) {
             shadow = Shadow(Color.Black.copy(alpha = 0.5f), Offset(0f, 6f), 18f),
         ),
     )
+}
+
+/**
+ * A rainbow exactly as wide as the text, like SwiftUI's leading-to-trailing
+ * gradient. It slides two widths per cycle: with mirror tiling that is one
+ * full period, so the loop restarts without a visible jump.
+ */
+private fun flowingRainbow(shift: Float): Brush = object : ShaderBrush() {
+    override fun createShader(size: Size): Shader {
+        val start = -2f * size.width * shift
+        return LinearGradientShader(
+            from = Offset(start, 0f),
+            to = Offset(start + size.width, 0f),
+            colors = Rainbow,
+            tileMode = TileMode.Mirror,
+        )
+    }
 }
 
 @Composable
