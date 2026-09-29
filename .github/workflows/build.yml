@@ -42,7 +42,12 @@ jobs:
         run: |
           cp app/build/outputs/apk/release/app-release.apk Jo.apk
           BT="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)"
-          "$BT/apksigner" verify --print-certs Jo.apk | grep -E "Signer #1 certificate (DN|SHA-256)"
+          echo "build-tools: $BT"
+          "$BT/apksigner" verify --print-certs Jo.apk | tee signer.txt
+          # The one key every release must carry. An APK signed with anything else
+          # could never update the copies already on phones, so stop before publishing.
+          grep -qi "7addc3d3170997fa3385a9773404e75f4d169617c4d32a28dcde42abbcfb4216" signer.txt \
+            || { echo "APK is not signed with the Jo release key"; exit 1; }
           "$BT/aapt2" dump badging Jo.apk | head -1
 
       - name: Upload artifact
