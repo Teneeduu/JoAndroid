@@ -1,0 +1,261 @@
+package com.teneeduu.jo.ui
+
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.Button
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.darkColorScheme
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.graphics.TileMode
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.teneeduu.jo.update.UpdateState
+import com.teneeduu.jo.update.UpdateViewModel
+
+// The same system colours the iOS home screen cycles through.
+private val Rainbow = listOf(
+    Color(0xFFFF2D55), Color(0xFFAF52DE), Color(0xFF5856D6), Color(0xFF007AFF),
+    Color(0xFF32ADE6), Color(0xFF34C759), Color(0xFFFFCC00), Color(0xFFFF9500),
+    Color(0xFFFF3B30), Color(0xFFFF2D55),
+)
+
+@Composable
+fun JoApp(updates: UpdateViewModel = viewModel()) {
+    val state by updates.state.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    var showSettings by rememberSaveable { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) { updates.check(quiet = true) }
+
+    MaterialTheme(colorScheme = darkColorScheme()) {
+        Box(
+            Modifier
+                .fillMaxSize()
+                .background(Color.Black),
+        ) {
+            RainbowBackdrop()
+
+            Greeting(Modifier.align(Alignment.Center))
+
+            UpdateBanner(
+                state = state,
+                onInstall = { updates.install(context) },
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .statusBarsPadding()
+                    .padding(top = 72.dp),
+            )
+
+            IconButton(
+                onClick = { showSettings = true },
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .statusBarsPadding()
+                    .padding(12.dp),
+            ) {
+                Icon(Icons.Filled.Settings, contentDescription = "设置", tint = Color.White)
+            }
+        }
+
+        if (showSettings) {
+            SettingsSheet(
+                state = state,
+                currentBuild = updates.currentBuild,
+                onCheck = { updates.check() },
+                onInstall = { updates.install(context) },
+                onDismiss = { showSettings = false },
+            )
+        }
+    }
+}
+
+@Composable
+private fun RainbowBackdrop() {
+    val transition = rememberInfiniteTransition(label = "backdrop")
+    val angle by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(tween(12_000, easing = LinearEasing)),
+        label = "angle",
+    )
+    // Rotating a sweep gradient stands in for SwiftUI's hueRotation.
+    Box(
+        Modifier
+            .fillMaxSize()
+            .graphicsLayer {
+                rotationZ = angle
+                scaleX = 1.8f
+                scaleY = 1.8f
+                alpha = 0.6f
+            }
+            .blur(70.dp)
+            .background(Brush.sweepGradient(Rainbow)),
+    )
+}
+
+@Composable
+private fun Greeting(modifier: Modifier) {
+    val transition = rememberInfiniteTransition(label = "greeting")
+    val shift by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(4_000, easing = LinearEasing)),
+        label = "shift",
+    )
+    val scale by transition.animateFloat(
+        initialValue = 0.94f,
+        targetValue = 1.08f,
+        animationSpec = infiniteRepeatable(tween(2_200, easing = FastOutSlowInEasing), RepeatMode.Reverse),
+        label = "scale",
+    )
+
+    Text(
+        text = "Hello,\nworld!",
+        modifier = modifier.graphicsLayer {
+            scaleX = scale
+            scaleY = scale
+        },
+        style = TextStyle(
+            brush = Brush.linearGradient(
+                colors = Rainbow,
+                start = Offset(shift * 900f, 0f),
+                end = Offset(shift * 900f + 900f, 300f),
+                tileMode = TileMode.Mirror,
+            ),
+            fontSize = 64.sp,
+            lineHeight = 70.sp,
+            fontWeight = FontWeight.Black,
+            textAlign = TextAlign.Center,
+            shadow = Shadow(Color.Black.copy(alpha = 0.5f), Offset(0f, 6f), 18f),
+        ),
+    )
+}
+
+@Composable
+private fun UpdateBanner(state: UpdateState, onInstall: () -> Unit, modifier: Modifier) {
+    val text = when (state) {
+        is UpdateState.Available -> "发现新版本 build ${state.build} · 点这里更新"
+        is UpdateState.Downloading -> "正在下载 build ${state.build} · ${(state.progress * 100).toInt()}%"
+        is UpdateState.NeedsInstallPermission -> "允许 Jo 安装应用后，点这里继续更新"
+        else -> return
+    }
+    Surface(
+        onClick = onInstall,
+        enabled = state !is UpdateState.Downloading,
+        shape = CircleShape,
+        color = Color.White.copy(alpha = 0.18f),
+        contentColor = Color.White,
+        modifier = modifier,
+    ) {
+        Text(text, Modifier.padding(horizontal = 18.dp, vertical = 10.dp), fontSize = 14.sp)
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SettingsSheet(
+    state: UpdateState,
+    currentBuild: Int,
+    onCheck: () -> Unit,
+    onInstall: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp)
+                .padding(bottom = 36.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            Text("关于 Jo", style = MaterialTheme.typography.titleMedium)
+
+            Row(Modifier.fillMaxWidth()) {
+                Text("当前版本")
+                Spacer(Modifier.weight(1f))
+                Text("build $currentBuild", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+
+            statusText(state)?.let { status ->
+                Text(status, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
+            }
+
+            when (state) {
+                is UpdateState.Available ->
+                    Button(onClick = onInstall) { Text("下载并安装 build ${state.build}") }
+
+                is UpdateState.NeedsInstallPermission ->
+                    Button(onClick = onInstall) { Text("我已允许，继续更新") }
+
+                is UpdateState.Downloading ->
+                    LinearProgressIndicator(progress = { state.progress }, modifier = Modifier.fillMaxWidth())
+
+                else ->
+                    OutlinedButton(onClick = onCheck, enabled = state !is UpdateState.Checking) {
+                        Text(if (state is UpdateState.Checking) "正在检查…" else "检查更新")
+                    }
+            }
+
+            Text(
+                "有新版本时 Jo 会自己从 GitHub 下载，下载完系统弹出安装确认，点「安装」即可，数据会保留。" +
+                    "第一次更新时需要允许 Jo「安装未知应用」。",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+private fun statusText(state: UpdateState): String? = when (state) {
+    is UpdateState.UpToDate -> "已经是最新版本"
+    is UpdateState.Available -> "有新版本：build ${state.build}"
+    is UpdateState.Downloading -> "正在下载 ${(state.progress * 100).toInt()}%"
+    is UpdateState.NeedsInstallPermission -> "请在刚打开的设置页里允许 Jo 安装应用，然后回来继续"
+    is UpdateState.Failed -> "检查失败：${state.message}"
+    else -> null
+}
