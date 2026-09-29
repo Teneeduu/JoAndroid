@@ -1,5 +1,6 @@
 package com.teneeduu.jo.ui
 
+import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -7,6 +8,7 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -38,21 +40,25 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.LinearGradientShader
 import androidx.compose.ui.graphics.Shader
 import androidx.compose.ui.graphics.ShaderBrush
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.teneeduu.jo.music.MusicViewModel
+import com.teneeduu.jo.photos.PhotoSlideshowViewModel
 import com.teneeduu.jo.update.UpdateState
 import com.teneeduu.jo.update.UpdateViewModel
 
@@ -68,14 +74,23 @@ fun JoApp(
     openSettingsAtLaunch: Boolean = false,
     updates: UpdateViewModel = viewModel(),
     music: MusicViewModel = viewModel(),
+    slideshow: PhotoSlideshowViewModel = viewModel(),
 ) {
     val updateState by updates.state.collectAsStateWithLifecycle()
     val nowPlaying by music.nowPlaying.collectAsStateWithLifecycle()
     val tracks by music.tracks.collectAsStateWithLifecycle()
+    val photo by slideshow.photo.collectAsStateWithLifecycle()
+    val photoSettings by slideshow.settings.collectAsStateWithLifecycle()
     val context = LocalContext.current
     var showSettings by rememberSaveable { mutableStateOf(openSettingsAtLaunch) }
 
     LaunchedEffect(Unit) { updates.check(quiet = true) }
+
+    // Only flip through photos while Jo is on screen.
+    LifecycleResumeEffect(Unit) {
+        slideshow.onVisible()
+        onPauseOrDispose { slideshow.onHidden() }
+    }
 
     MaterialTheme(colorScheme = darkColorScheme()) {
         Box(
@@ -83,7 +98,12 @@ fun JoApp(
                 .fillMaxSize()
                 .background(Color.Black),
         ) {
-            RainbowBackdrop()
+            val current = photo
+            if (photoSettings.enabled && current != null) {
+                PhotoBackdrop(current)
+            } else {
+                RainbowBackdrop()
+            }
 
             Greeting(Modifier.align(Alignment.Center))
 
@@ -124,7 +144,7 @@ fun JoApp(
         }
 
         if (showSettings) {
-            SettingsSheet(music = music, updates = updates, onDismiss = { showSettings = false })
+            SettingsSheet(slideshow = slideshow, music = music, updates = updates, onDismiss = { showSettings = false })
         }
     }
 }
@@ -152,6 +172,30 @@ private fun GlassPill(
             content()
         }
     }
+}
+
+@Composable
+private fun PhotoBackdrop(photo: ImageBitmap) {
+    Crossfade(targetState = photo, animationSpec = tween(1_400), label = "photo") { image ->
+        Image(
+            bitmap = image,
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxSize(),
+        )
+    }
+    // Darker at the top and bottom so the text and buttons stay readable on any photo.
+    Box(
+        Modifier
+            .fillMaxSize()
+            .background(
+                Brush.verticalGradient(
+                    0f to Color.Black.copy(alpha = 0.55f),
+                    0.5f to Color.Black.copy(alpha = 0.1f),
+                    1f to Color.Black.copy(alpha = 0.65f),
+                ),
+            ),
+    )
 }
 
 @Composable

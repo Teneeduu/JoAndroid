@@ -76,6 +76,9 @@ jobs:
         with:
           name: Jo-apk
 
+      - name: Make sample photos
+        run: python3 scripts/make_sample_photos.py
+
       - name: Enable KVM
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
@@ -91,8 +94,13 @@ jobs:
           disable-animations: true
           script: |
             adb install -r Jo.apk
+            adb shell mkdir -p /sdcard/DCIM/Camera /sdcard/Pictures/Screenshots
+            adb push sample1.png sample2.png sample3.png /sdcard/DCIM/Camera/
+            adb push sample1.png /sdcard/Pictures/Screenshots/not-a-camera-photo.png
+            adb shell content call --uri content://media --method scan_volume --arg external_primary || true
+            adb shell pm grant com.teneeduu.jo android.permission.READ_MEDIA_IMAGES
             adb shell am start -n com.teneeduu.jo/.MainActivity
-            sleep 10
+            sleep 12
             adb exec-out screencap -p > screenshot.png
             adb shell uiautomator dump /sdcard/ui.xml
             adb shell cat /sdcard/ui.xml > ui.xml

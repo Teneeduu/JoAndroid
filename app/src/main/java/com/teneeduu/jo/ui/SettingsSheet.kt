@@ -53,12 +53,18 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.teneeduu.jo.music.MusicViewModel
 import com.teneeduu.jo.music.NowPlaying
 import com.teneeduu.jo.music.Track
+import com.teneeduu.jo.photos.PhotoSlideshowViewModel
 import com.teneeduu.jo.update.UpdateState
 import com.teneeduu.jo.update.UpdateViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsSheet(music: MusicViewModel, updates: UpdateViewModel, onDismiss: () -> Unit) {
+fun SettingsSheet(
+    slideshow: PhotoSlideshowViewModel,
+    music: MusicViewModel,
+    updates: UpdateViewModel,
+    onDismiss: () -> Unit,
+) {
     val context = LocalContext.current
     val tracks by music.tracks.collectAsStateWithLifecycle()
     val nowPlaying by music.nowPlaying.collectAsStateWithLifecycle()
@@ -78,6 +84,10 @@ fun SettingsSheet(music: MusicViewModel, updates: UpdateViewModel, onDismiss: ()
             contentPadding = PaddingValues(start = 24.dp, end = 24.dp, bottom = 40.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
+            item { PhotoSettings(slideshow) }
+
+            item { HorizontalDivider(Modifier.padding(vertical = 8.dp)) }
+
             item { Text("音乐", style = MaterialTheme.typography.titleLarge) }
 
             item { PlayerControls(nowPlaying, hasTracks = tracks.isNotEmpty(), music = music) }
