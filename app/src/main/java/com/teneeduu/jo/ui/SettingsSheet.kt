@@ -54,12 +54,14 @@ import com.teneeduu.jo.music.MusicViewModel
 import com.teneeduu.jo.music.NowPlaying
 import com.teneeduu.jo.music.Track
 import com.teneeduu.jo.photos.PhotoSlideshowViewModel
+import com.teneeduu.jo.quotes.QuotesViewModel
 import com.teneeduu.jo.update.UpdateState
 import com.teneeduu.jo.update.UpdateViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsSheet(
+    quotes: QuotesViewModel,
     slideshow: PhotoSlideshowViewModel,
     music: MusicViewModel,
     updates: UpdateViewModel,
@@ -84,6 +86,10 @@ fun SettingsSheet(
             contentPadding = PaddingValues(start = 24.dp, end = 24.dp, bottom = 40.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
+            item { QuoteSettings(quotes) }
+
+            item { HorizontalDivider(Modifier.padding(vertical = 8.dp)) }
+
             item { PhotoSettings(slideshow) }
 
             item { HorizontalDivider(Modifier.padding(vertical = 8.dp)) }

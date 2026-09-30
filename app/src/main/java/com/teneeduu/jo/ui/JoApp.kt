@@ -12,6 +12,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -59,6 +60,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.teneeduu.jo.music.MusicViewModel
 import com.teneeduu.jo.photos.PhotoSlideshowViewModel
+import com.teneeduu.jo.quotes.Quote
+import com.teneeduu.jo.quotes.QuotesViewModel
 import com.teneeduu.jo.update.UpdateState
 import com.teneeduu.jo.update.UpdateViewModel
 
@@ -71,20 +74,26 @@ private val Rainbow = listOf(
 
 @Composable
 fun JoApp(
-    openSettingsAtLaunch: Boolean = false,
     updates: UpdateViewModel = viewModel(),
     music: MusicViewModel = viewModel(),
     slideshow: PhotoSlideshowViewModel = viewModel(),
+    quotes: QuotesViewModel = viewModel(),
 ) {
     val updateState by updates.state.collectAsStateWithLifecycle()
     val nowPlaying by music.nowPlaying.collectAsStateWithLifecycle()
     val tracks by music.tracks.collectAsStateWithLifecycle()
     val photo by slideshow.photo.collectAsStateWithLifecycle()
     val photoSettings by slideshow.settings.collectAsStateWithLifecycle()
+    val quote by quotes.current.collectAsStateWithLifecycle()
     val context = LocalContext.current
-    var showSettings by rememberSaveable { mutableStateOf(openSettingsAtLaunch) }
+    var showSettings by rememberSaveable { mutableStateOf(false) }
 
     LaunchedEffect(Unit) { updates.check(quiet = true) }
+
+    // Words and picture turn over together, like on iOS.
+    LaunchedEffect(photo) {
+        if (photo != null) quotes.shuffle()
+    }
 
     // Only flip through photos while Jo is on screen.
     LifecycleResumeEffect(Unit) {
@@ -105,7 +114,13 @@ fun JoApp(
                 RainbowBackdrop()
             }
 
-            Greeting(Modifier.align(Alignment.Center))
+            Column(
+                Modifier.align(Alignment.Center),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Greeting()
+                quote?.let { QuoteLine(it) }
+            }
 
             UpdateBanner(
                 state = updateState,
@@ -144,7 +159,13 @@ fun JoApp(
         }
 
         if (showSettings) {
-            SettingsSheet(slideshow = slideshow, music = music, updates = updates, onDismiss = { showSettings = false })
+            SettingsSheet(
+                quotes = quotes,
+                slideshow = slideshow,
+                music = music,
+                updates = updates,
+                onDismiss = { showSettings = false },
+            )
         }
     }
 }
@@ -223,7 +244,32 @@ private fun RainbowBackdrop() {
 }
 
 @Composable
-private fun Greeting(modifier: Modifier) {
+private fun QuoteLine(quote: Quote) {
+    val shadow = Shadow(Color.Black.copy(alpha = 0.7f), Offset(0f, 2f), 8f)
+    Crossfade(targetState = quote, animationSpec = tween(900), label = "quote") { shown ->
+        Column(
+            Modifier.padding(horizontal = 36.dp).padding(top = 10.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Text(
+                shown.text,
+                color = Color.White,
+                style = TextStyle(fontSize = 17.sp, fontWeight = FontWeight.Medium, textAlign = TextAlign.Center, shadow = shadow),
+            )
+            if (shown.source.isNotBlank()) {
+                Text(
+                    "—— ${shown.source}",
+                    color = Color.White.copy(alpha = 0.75f),
+                    style = TextStyle(fontSize = 13.sp, shadow = shadow),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun Greeting(modifier: Modifier = Modifier) {
     val transition = rememberInfiniteTransition(label = "greeting")
     val shift by transition.animateFloat(
         initialValue = 0f,

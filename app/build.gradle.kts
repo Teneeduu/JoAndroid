@@ -79,4 +79,6 @@ dependencies {
     implementation("androidx.media3:media3-session:1.5.0")
 
     implementation("io.coil-kt.coil3:coil-compose:3.0.4")
+
+    testImplementation("junit:junit:4.13.2")
 }

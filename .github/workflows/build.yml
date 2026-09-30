@@ -36,7 +36,10 @@ jobs:
           JO_KEYSTORE_PATH: ${{ runner.temp }}/jo-release.p12
           JO_KEYSTORE_PASSWORD: ${{ secrets.JO_KEYSTORE_PASSWORD }}
           JO_KEY_ALIAS: jo
-        run: gradle assembleRelease -PjoVersionCode=${{ github.run_number }} --stacktrace
+        run: gradle testReleaseUnitTest assembleRelease -PjoVersionCode=${{ github.run_number }} --stacktrace
+
+      - name: Unit test summary
+        run: grep -h -o 'testsuite name="[^"]*" tests="[0-9]*" skipped="[0-9]*" failures="[0-9]*" errors="[0-9]*"' app/build/test-results/testReleaseUnitTest/*.xml
 
       - name: Check signature and version
         run: |
@@ -99,25 +102,28 @@ jobs:
             adb push sample1.png /sdcard/Pictures/Screenshots/not-a-camera-photo.png
             adb shell content call --uri content://media --method scan_volume --arg external_primary || true
             adb shell pm grant com.teneeduu.jo android.permission.READ_MEDIA_IMAGES
+            adb shell pm grant com.teneeduu.jo android.permission.POST_NOTIFICATIONS
             adb shell am start -n com.teneeduu.jo/.MainActivity
             sleep 12
             adb exec-out screencap -p > screenshot.png
-            adb shell uiautomator dump /sdcard/ui.xml
-            adb shell cat /sdcard/ui.xml > ui.xml
-            sh scripts/tap-text.sh ui.xml "播放音乐"
+            sh scripts/tap-text.sh "播放音乐"
             sleep 5
             adb shell dumpsys media_session > media_session.txt
+            sh scripts/tap-text.sh "设置"
+            sleep 3
+            adb exec-out screencap -p > screenshot-settings.png
+            sh scripts/tap-text.sh "发一条试试"
+            sleep 3
+            adb shell dumpsys notification --noredact > notifications.txt
             adb shell cmd statusbar expand-notifications
             sleep 3
             adb exec-out screencap -p > screenshot-notification.png
             adb shell cmd statusbar collapse
-            adb shell am force-stop com.teneeduu.jo
-            adb shell am start -n com.teneeduu.jo/.MainActivity --ez open_settings true
-            sleep 8
-            adb exec-out screencap -p > screenshot-settings.png
 
-      - name: Show Jo's media session state
-        run: grep -A 15 "com.teneeduu.jo" media_session.txt | grep -E "package=|active=|state=" | head -8 || true
+      - name: Show Jo's media session and notifications
+        run: |
+          grep -A 15 "com.teneeduu.jo" media_session.txt | grep -E "package=|active=|state=" | head -8 || true
+          grep -E "pkg=com.teneeduu.jo|android.title=|android.text=" notifications.txt | head -12 || true
 
       - name: Upload screenshots
         uses: actions/upload-artifact@v4
@@ -126,3 +132,4 @@ jobs:
           path: |
             screenshot*.png
             media_session.txt
+            notifications.txt
